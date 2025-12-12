@@ -1,0 +1,119 @@
+Creating Virtual Machines
+
+For each VM:
+
+Selected Linux → Ubuntu (64-bit) or Other Linux depending on OS.
+
+Allocated:
+
+RAM: 2–4 GB
+
+CPU: 2 cores
+
+Storage: dynamic VDI disk (expanded later when required)
+
+1.3 Networking Setup
+
+The key part was configuring VM networking for Wazuh Manager and Agents to communicate.
+
+I used:
+
+🔹 NAT Network (Recommended for SOC labs)
+
+This gives every VM a private subnet, such as:
+
+10.0.2.0/24
+
+1.4 Fixing VirtualBox NAT / Clipboard Issues
+
+Enabled Shared Clipboard → Bidirectional
+
+Enabled Drag-and-Drop → Bidirectional
+
+Installed Guest Additions inside VMs
+
+If clipboard didn't work:
+
+sudo apt install virtualbox-guest-x11 virtualbox-guest-utils virtualbox-guest-dkms
+sudo reboot
+
+
+This fixed the copy-paste issue between host and VM.
+
+2. OSSEC/Wazuh Minimal Error – How It Was Fixed
+
+When running Wazuh Manager OR Wazuh Agent, the system showed a "minimal error" meaning the configuration was incomplete or incorrect.
+
+This normally happens due to:
+
+Wrong IP
+
+Wrong manager address
+
+Wrong <auth> or <remote> block
+
+Incorrect syntax in ossec.conf
+
+✔ Root Cause in Our Case
+
+The manager IP was still set to a local/old IP from another network (e.g., 192.168.x.x), but VirtualBox NAT Network used a different subnet.
+
+→ So the agent could not reach the manager.
+
+3. What We Changed in ossec.conf
+
+You successfully updated the Wazuh/OSSEC config file to match the NAT Network IP.
+
+📌 Example of incorrect config (before)
+<client>
+  <address>192.168..5</address>
+</client>
+
+📌 Corrected config (after)
+
+You changed it to the NAT Network IP assigned to Wazuh Manager:
+
+<client>
+  <address>192.168.150.99</address>
+</client>
+
+Additional fixes (if applied)
+
+Ensured <server> or <remote> block was properly closed.
+
+Removed duplicate <address> blocks.
+
+Fixed XML formatting issues.
+
+After changing the IP:
+
+You restarted Wazuh:
+
+sudo systemctl restart wazuh-manager
+sudo systemctl restart wazuh-agent
+
+
+Then checked status:
+
+sudo systemctl status wazuh-agent
+
+
+Result: No more minimal error. The agent was able to connect.
+
+4. How Everything Works Together Now
+4.1 VirtualBox NAT Network Routes Traffic Correctly
+
+All VMs are inside the same NAT Network.
+This allows:
+
+Wazuh Manager ↔ Wazuh Agent communication
+
+SSH, Ping, Filebeat, Alerts working properly
+
+4.2 OSSEC/Wazuh Recognizes the Agent
+
+Because the manager IP is now correct, the agent can authenticate and send logs.
+
+4.3 No More Configuration Errors
+
+The ossec.conf file is valid, properly formatted, and pointing to the right IP
